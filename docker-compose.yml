@@ -1,0 +1,22 @@
+services:
+  rabbitmq:
+    # Use o build a partir do Dockerfile na mesma pasta
+    build: .
+    hostname: rabbitmq-server
+    container_name: rabbitmq-container
+    ports:
+      # Porta para a interface de gerenciamento (Web UI)
+      - "8080:15672"
+      # Porta padrão para o AMQP (comunicação com a aplicação)
+      - "5672:5672"
+    environment:
+      # Configura um usuário e senha personalizados
+      - RABBITMQ_DEFAULT_USER=meu_usuario
+      - RABBITMQ_DEFAULT_PASS=minha_senha
+    volumes:
+      # Persiste os dados e as definições do RabbitMQ no host
+      - rabbitmq_data:/var/lib/rabbitmq/mnesia
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
