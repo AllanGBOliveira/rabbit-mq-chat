@@ -1,17 +1,20 @@
 import amqp from 'amqplib';
 import * as readline from 'node:readline';
+import * as dotenv from 'dotenv';
+import { saveMessage, getMessagesByQueue } from './db';
 
-const user = 'meu_usuario';
-const password = 'minha_senha';
-const host = 'localhost';
-const port = 5672;
-const exchange = 'send-chat-message'
+dotenv.config();
+
+const user = process.env.RABBITMQ_DEFAULT_USER || '';
+const password = process.env.RABBITMQ_DEFAULT_PASS || '';
+const host = process.env.RABBIT_HOST || 'localhost';
+const port = parseInt(process.env.RABBIT_PORT || '5672');
+const exchange = process.env.RABBIT_EXCHANGE || 'send-chat-message'
 
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
-
 
 function sanitizeName(name: string): string {
     const sanitized = name.toLowerCase()
@@ -21,22 +24,30 @@ function sanitizeName(name: string): string {
     return sanitized;
 }
 
-
-async function postMessage(message: string, queue: string) {
+async function postMessage(message: string, queue: string, senderName: string) {
     try {
         const connection = await amqp.connect(`amqp://${user}:${password}@${host}:${port}`);
         const channel = await connection.createChannel();
         await channel.assertExchange(exchange, 'direct', { durable: false });
         await channel.prefetch(1);
         const routingKey = `key_${queue}`;
-        channel.publish(exchange, routingKey, Buffer.from(message));
+        
+        await saveMessage(senderName, message, queue);
+        
+        channel.publish(exchange, routingKey, Buffer.from(JSON.stringify({
+            sender: senderName,
+            content: message,
+            timestamp: new Date().toISOString()
+        })));
+        
+        console.log(`[${senderName}] Mensagem enviada: ${message}`);
         setTimeout(() => connection.close(), 500);
     } catch (error) {
         console.error("Erro ao enviar mensagem:", error);
     }
 }
 
-async function consumeMessages(queue: string, senderName: string) {
+async function consumeMessages(queue: string, otherUserName: string) {
     try {
         const connection = await amqp.connect(`amqp://${user}:${password}@${host}:${port}`);
         const channel = await connection.createChannel();
@@ -46,14 +57,24 @@ async function consumeMessages(queue: string, senderName: string) {
         await channel.bindQueue(queue, exchange, bindingKey);
         await channel.prefetch(1);
 
-        console.log(`\n[${senderName}] - Aguardando mensagens em '${queue}'...`);
+        const history = await getMessagesByQueue(queue);
+        console.log(`\n--- Histórico de mensagens (${history.length}) ---`);
+        history.forEach(msg => {
+            const time = new Date(msg.timestamp).toLocaleTimeString();
+            console.log(`[${time}] ${msg.sender}: ${msg.content}`);
+        });
+        console.log('--- Fim do histórico ---\n');
 
-        channel.consume(queue, (msg) => {
+        console.log(`\nAguardando mensagens em '${queue}'...`);
+
+        channel.consume(queue, async (msg) => {
             if (msg) {
-                console.log(`[${senderName}]: ${msg.content.toString()}`);
+                const { sender, content, timestamp } = JSON.parse(msg.content.toString());
+                console.log(`\n[${new Date(timestamp).toLocaleTimeString()}] ${sender}: ${content}`);
+                console.log(`Digite sua mensagem (ou 'sair' para sair):`);
                 channel.ack(msg);
             }
-        }, { noAck: false });
+        });
     } catch (error) {
         console.error("Erro ao consumir mensagens:", error);
     }
@@ -73,7 +94,7 @@ async function startChat() {
             consumeMessages(myQueue, otherUserName);
 
             rl.on('line', (input) => {
-                postMessage(input, otherQueue);
+                postMessage(input, otherQueue, myUserName);
             });
         });
     });
