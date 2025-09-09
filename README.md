@@ -14,11 +14,15 @@ Um sistema de chat em tempo real utilizando **RabbitMQ** como message broker e *
 - 📦 **Filas personalizadas** - Como criar e gerenciar diferentes filas
 - 🔗 **Conexões AMQP** - Protocolo de mensageria avançado
 - 🛠️ **TypeScript + Node.js** - Desenvolvimento tipado para mensageria
+- 🎯 **Direct Exchange** - Implementação de roteamento direto de mensagens
+- 🔑 **Routing Keys** - Sistema de chaves para roteamento específico
 
 ## 📋 Características do Projeto
 
 - ✅ Chat simples entre dois usuários (implementação básica para aprendizado)
 - ✅ Sistema de filas personalizadas por usuário
+- ✅ **Direct Exchange** para roteamento eficiente de mensagens
+- ✅ **Routing Keys** com padrão `key-{nome_da_fila}`
 - ✅ Interface via terminal (fácil de testar e entender)
 - ✅ Código comentado e didático
 - ✅ Configuração Docker simplificada
@@ -165,19 +169,43 @@ Oi Alice! Estou bem, obrigado!
 ## 🏗️ Arquitetura do Sistema
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Alice     │    │  RabbitMQ   │    │    Bob      │
-│ (Terminal 1)│    │   Server    │    │ (Terminal 2)│
-└─────────────┘    └─────────────┘    └─────────────┘
-       │                   │                   │
-       │ Envia para        │        Envia para │
-       │ "bob_fila"        │        "alice_fila"│
-       └──────────────────►│◄──────────────────┘
-                           │
-       ┌──────────────────►│◄──────────────────┐
-       │ Escuta            │            Escuta │
-       │ "alice_fila"      │        "bob_fila" │
+┌─────────────┐    ┌─────────────────────────────┐    ┌─────────────┐
+│   Alice     │    │        RabbitMQ Server      │    │    Bob      │
+│ (Terminal 1)│    │                             │    │ (Terminal 2)│
+└─────────────┘    │  ┌─────────────────────────┐ │    └─────────────┘
+       │           │  │  Direct Exchange        │ │           │
+       │           │  │ "send-chat-message"     │ │           │
+       │ Publica   │  └─────────────────────────┘ │  Publica  │
+       │ com       │           │         │        │  com      │
+       │ routing   │           │         │        │  routing  │
+       │ key:      │  ┌────────▼─┐   ┌──▼────────┐ │  key:     │
+       │"key-bob_  │  │alice_fila│   │ bob_fila  │ │"key-alice_│
+       │ fila"     │  │          │   │           │ │ fila"     │
+       └──────────►│  │(binding: │   │(binding:  │ │◄──────────┘
+                   │  │key-alice_│   │key-bob_   │ │
+       ┌──────────►│  │ fila)    │   │ fila)     │ │◄──────────┐
+       │ Consome   │  └────────▲─┘   └──▲────────┘ │  Consome  │
+       │           │           │         │        │           │
+       │           └───────────┼─────────┼────────┘           │
+       │                       │         │                    │
+       └───────────────────────┘         └────────────────────┘
 ```
+
+### 🔄 Fluxo de Mensagens com Direct Exchange
+
+1. **Alice** envia mensagem para **Bob**:
+   - Publica no exchange `send-chat-message`
+   - Usa routing key `key-bob_fila`
+   - Exchange roteia para a fila `bob_fila`
+
+2. **Bob** recebe a mensagem:
+   - Consome da fila `bob_fila`
+   - Fila está vinculada ao exchange com binding key `key-bob_fila`
+
+3. **Vantagens do Direct Exchange**:
+   - Roteamento preciso baseado em routing keys
+   - Melhor performance que outros tipos de exchange
+   - Controle granular sobre o destino das mensagens
 
 ## 🐛 Solução de Problemas
 
@@ -255,7 +283,10 @@ Algumas ideias para expandir este projeto de estudos:
 - [ ] **Configuração externa**: Mover credenciais para arquivo de ambiente
 
 ### 🎓 Conceitos Avançados para Estudar
-- [ ] **Exchanges**: Implementar diferentes tipos (direct, topic, fanout)
+- [x] **Direct Exchange**: ✅ **Implementado** - Roteamento direto com routing keys
+- [ ] **Topic Exchange**: Implementar padrões de roteamento com wildcards
+- [ ] **Fanout Exchange**: Broadcast de mensagens para múltiplas filas
+- [ ] **Headers Exchange**: Roteamento baseado em headers das mensagens
 - [ ] **Dead Letter Queues**: Tratamento de mensagens com falha
 - [ ] **Message TTL**: Implementar tempo de vida das mensagens
 - [ ] **Clustering**: Configurar RabbitMQ em cluster

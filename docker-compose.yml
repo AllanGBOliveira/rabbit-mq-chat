@@ -3,7 +3,6 @@ services:
     # Use o build a partir do Dockerfile na mesma pasta
     build: .
     hostname: rabbitmq-server
-    container_name: rabbitmq-container
     ports:
       # Porta para a interface de gerenciamento (Web UI)
       - "8080:15672"
