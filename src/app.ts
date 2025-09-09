@@ -5,6 +5,7 @@ const user = 'meu_usuario';
 const password = 'minha_senha';
 const host = 'localhost';
 const port = 5672;
+const exchange = 'send-chat-message'
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -25,8 +26,10 @@ async function postMessage(message: string, queue: string) {
     try {
         const connection = await amqp.connect(`amqp://${user}:${password}@${host}:${port}`);
         const channel = await connection.createChannel();
-        await channel.assertQueue(queue, { durable: false });
-        channel.sendToQueue(queue, Buffer.from(message));
+        await channel.assertExchange(exchange, 'direct', { durable: false });
+        await channel.prefetch(1);
+        const routingKey = `key-${queue}`;
+        channel.publish(exchange, routingKey, Buffer.from(message));
         setTimeout(() => connection.close(), 500);
     } catch (error) {
         console.error("Erro ao enviar mensagem:", error);
@@ -37,8 +40,12 @@ async function consumeMessages(queue: string, senderName: string) {
     try {
         const connection = await amqp.connect(`amqp://${user}:${password}@${host}:${port}`);
         const channel = await connection.createChannel();
+        await channel.assertExchange(exchange, 'direct', { durable: false });
         await channel.assertQueue(queue, { durable: false });
-        
+        const bindingKey = `key-${queue}`;
+        await channel.bindQueue(queue, exchange, bindingKey);
+        await channel.prefetch(1);
+
         console.log(`\n[${senderName}] - Aguardando mensagens em '${queue}'...`);
 
         channel.consume(queue, (msg) => {
