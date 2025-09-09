@@ -8,7 +8,8 @@
     "dev": "ts-node-dev src/app.ts"
   },
   "dependencies": {
-    "amqplib": "^0.10.3"
+    "amqplib": "^0.10.3",
+    "lowdb": "^7.0.1"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.1",
