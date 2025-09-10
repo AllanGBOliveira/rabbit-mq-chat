@@ -14,7 +14,8 @@
   "dependencies": {
     "amqplib": "^0.10.3",
     "dotenv": "^16.3.1",
-    "lowdb": "^7.0.1"
+    "lowdb": "^7.0.1",
+    "pino": "^9.9.5"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.1",
