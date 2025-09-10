@@ -37,3 +37,8 @@ npm-log.log
 Thumbs.db
 db.json
 .env
+# Allow ESLint and Prettier config
+!/.eslintrc.js
+!/.eslintrc.ts
+
+!/eslint.config.js
